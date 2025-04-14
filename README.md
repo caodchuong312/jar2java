@@ -4,7 +4,7 @@ simple tool that implements vineflower to decompile java source code in a folder
 options:
 ```
 -f : folder contain jar file
--jp : specify java path if it's not available on path env (recommend jdk >= 17)
+-jp : specify java binary path if it's not available on your path env (recommend jdk >= 17)
 ```
 
 examples:
@@ -12,5 +12,5 @@ examples:
 # decompile all files in folder
 python3 main.py -f /path/to/folder/
 # specify jdk path to use
-python3 main.py -f /path/to/folder -jp /opt/jdk17/bin/java
+python3 main.py -f /path/to/folder/ -jp /opt/jdk17/bin/java
 ```

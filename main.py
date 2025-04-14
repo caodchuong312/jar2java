@@ -2,9 +2,9 @@ import glob, subprocess, os, stat
 import xml.dom.minidom
 import argparse
 
-def checkJavaPath():
+def checkJavaPath(java_path):
     try:
-        cmd = subprocess.run("java -version", shell=True, capture_output=True, text=True)
+        cmd = subprocess.run(f"{java_path} -version", shell=True, capture_output=True, text=True)
         print('[FOUND] - found java, recommend jdk17 or higher')
     except subprocess.CalledProcessError:
         print(f"[ERROR] - java not found, make sure is available on your PATH or specify it with '-jp' flag")
@@ -74,11 +74,9 @@ def beautifyXML(xml_files):
             print(e)
 
 if __name__ == '__main__':
-    checkJavaPath()
-
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', '--folder', help='folder contain jar files')
-    parser.add_argument('-jp', '--java-path', help='specify java path')
+    parser.add_argument('-jp', '--java-path', help='specify java binary path')
     args = parser.parse_args()
 
     # conf
@@ -96,6 +94,7 @@ if __name__ == '__main__':
     JAVA_PATH = 'java'
     if args.java_path != None:
         JAVA_PATH = args.java_path
+    checkJavaPath(JAVA_PATH)
 
     jar_files = glob.glob(PROJECT_FOLDER_PATH + ALL_JARS_REGEX, recursive=True)
     decompileJars(jar_files, JAVA_PATH)
