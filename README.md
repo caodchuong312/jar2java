@@ -1,3 +1,16 @@
 # jar2java
-Simple tool that implements vineflower to decompile java source-code in a folder. Replace jar/class files to decompiled package/java files. Useful in audit source-code
+simple tool that implements vineflower to decompile java source code in a folder. This tool will replace .jar/.class file to .java. Useful for searching
 
+options:
+```
+-f : folder contain jar file
+-jp : specify java path if it's not available on path env (recommend jdk >= 17)
+```
+
+examples:
+```python
+# decompile all files in folder
+python3 main.py -f /path/to/folder/
+# specify jdk path to use
+python3 main.py -f /path/to/folder -jp /opt/jdk17/bin/java
+```
