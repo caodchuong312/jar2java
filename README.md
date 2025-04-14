@@ -1,5 +1,5 @@
 # jar2java
-simple tool that implements vineflower to decompile java source code in a folder. This tool will replace .jar/.class file to .java. Useful for searching
+simple tool that implements vineflower to decompile java source code in a folder. This tool will decompile `.jar/.class` file to `.java`. Useful for searching when audit source code
 
 options:
 ```
