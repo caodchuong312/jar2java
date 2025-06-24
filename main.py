@@ -12,7 +12,7 @@ def checkJavaPath(java_path):
 
 def decompile(jav_file, out_jav_folder, JAVA_PATH):
     VINEFLOWER_PATH = 'vineflower-1.11.1.jar'
-    command = f"{JAVA_PATH} -Xmx6G -jar {VINEFLOWER_PATH} --silent {jav_file} {out_jav_folder}"
+    command = f"{JAVA_PATH} -Xmx16G -jar {VINEFLOWER_PATH} --silent {jav_file} {out_jav_folder}"
 
     try:
         subprocess.run(command, check=True, shell=True)
