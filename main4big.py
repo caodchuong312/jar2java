@@ -1,7 +1,8 @@
 import glob, subprocess, os, stat
 import xml.dom.minidom
-import argparse
+import argparse, threading, time
 
+## dealing with large codebase
 def checkJavaPath(java_path):
     try:
         cmd = subprocess.run(f"{java_path} -version", shell=True, capture_output=True, text=True)
@@ -40,14 +41,29 @@ def decompileJars(jar_files, JAVA_PATH):
             print(f'STATUS: done {i} jars')
     print(f'STATUS: done all jars')
 
-def decompileClasses(class_files, JAVA_PATH):
+def decompileClasses(class_files, JAVA_PATH, thread_num=4):
     print(f'STATUS: found {len(class_files)} class files')
+
+    sleep_time = 2
+    threads = []
     for i, class_file in enumerate(class_files):
         class_file, out_class_folder = getReady(class_file)
         out_class_folder = os.path.dirname(out_class_folder)
-        decompile(class_file, out_class_folder, JAVA_PATH)
 
-        if i % 50 == 0 and i != 0:
+        # decompile(class_file, out_class_folder, JAVA_PATH)
+        t = threading.Thread(target=decompile, args=(class_file, out_class_folder, JAVA_PATH,))
+        t.start()
+        threads.append(t)
+
+        while True:
+            for t2 in threads:
+                if not t2.is_alive():
+                    threads.remove(t2)
+            if len(threads) < thread_num:
+                break
+            time.sleep(sleep_time)
+
+        if i % 20 == 0 and i != 0:
             print(f'STATUS: done {i} classes')
     print(f'STATUS: done all classes')
 
@@ -78,6 +94,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', '--folder', help='folder contain jar files')
     parser.add_argument('-jp', '--java-path', help='specify java binary path')
+    parser.add_argument('-t', '--thread', help='how many thread to use, default is 4')
     args = parser.parse_args()
 
     # conf
@@ -101,7 +118,10 @@ if __name__ == '__main__':
     decompileJars(jar_files, JAVA_PATH)
 
     class_files = glob.glob(PROJECT_FOLDER_PATH + ALL_CLASSES_REGEX, recursive=True)
-    decompileClasses(class_files, JAVA_PATH)
+    thread_num = 4
+    if args.thread != None:
+        thread_num = int(args.thread)
+    decompileClasses(class_files, JAVA_PATH, thread_num)
 
     xml_files = glob.glob(PROJECT_FOLDER_PATH + ALL_XML_REGEX, recursive=True)
     beautifyXML(xml_files)
