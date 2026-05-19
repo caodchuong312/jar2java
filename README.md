@@ -18,3 +18,7 @@ python3 main4big.py -t 4 -f /path/to/folder/
 # specify jdk path to use
 python3 main.py -f /path/to/folder/ -jp /opt/jdk17/bin/java
 ```
+
+## update
+- ignore class file larger than 300kb - system froze due to full RAM
+- add timeout when decompile each jar/class file after 3 minutes  - file too complex

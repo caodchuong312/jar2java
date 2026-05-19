@@ -16,7 +16,10 @@ def decompile(jav_file, out_jav_folder, JAVA_PATH):
     command = f"{JAVA_PATH} -Xmx16G -jar {VINEFLOWER_PATH} --silent {jav_file} {out_jav_folder}"
 
     try:
-        subprocess.run(command, check=True, shell=True)
+        subprocess.run(command, check=True, shell=True, timeout=120)
+    except subprocess.TimeoutExpired as e:
+        print(f"TIMEOUT: ignore this jar file: {jav_file}")
+        return
     except Exception as e:
         print(f"ERROR: Error decompile: {jav_file}")
         return
@@ -41,6 +44,10 @@ def decompileJars(jar_files, JAVA_PATH):
             print(f'STATUS: done {i} jars')
     print(f'STATUS: done all jars')
 
+
+def is_file_larger_than_300kb(filepath):
+    return os.path.getsize(filepath) > 300_000
+
 def decompileClasses(class_files, JAVA_PATH, thread_num=4):
     print(f'STATUS: found {len(class_files)} class files')
 
@@ -49,6 +56,10 @@ def decompileClasses(class_files, JAVA_PATH, thread_num=4):
     for i, class_file in enumerate(class_files):
         class_file, out_class_folder = getReady(class_file)
         out_class_folder = os.path.dirname(out_class_folder)
+
+        if is_file_larger_than_300kb(class_file):
+            print('[IGNORE] class file larger than 300kb: ' + class_file)
+            continue
 
         # decompile(class_file, out_class_folder, JAVA_PATH)
         t = threading.Thread(target=decompile, args=(class_file, out_class_folder, JAVA_PATH,))
