@@ -1,24 +1,38 @@
 # jar2java
-simple tool that implements vineflower to decompile java source code in a folder. This tool will decompile `.jar/.class` file to `.java`. Useful for searching when audit source code
+A simple tool that utilizes Vineflower to decompile Java source code in a folder. This tool decompiles `.jar` and `.class` files to `.java`, which is useful for searching during source code audits.
 
-options:
+## Options
 ```
--f : folder contain jar file
--t: number of thread when decompile class file (main4big.py only)
--jp : specify java binary path if it's not available on your path env (jdk >= 17)
+-f : One or more folders containing JAR/class files
+-t : Number of threads when decompiling class files (default: 4)
+-jp: Specify java binary path if it's not available in your PATH environment variable (requires JDK >= 17)
+-u : Download/update to the latest Vineflower jar from GitHub releases
 ```
 
-examples:
-```python
-# decompile all files in folder
+## Examples
+```bash
+# Decompile all files in a folder (defaults to 4 threads for class files)
 python3 main.py -f /path/to/folder/
 
-# when dealing with large files
-python3 main4big.py -t 4 -f /path/to/folder/
-# specify jdk path to use
+# Decompile multiple folders at once
+python3 main.py -f /path/to/folder1 /path/to/folder2
+
+# Decompile using 8 threads
+python3 main.py -t 8 -f /path/to/folder/
+
+# Specify JDK path to use
 python3 main.py -f /path/to/folder/ -jp /opt/jdk17/bin/java
+
+# Update/download the latest Vineflower jar from GitHub releases and cleanup old ones
+python3 main.py -u
 ```
 
-## update
-- ignore class file larger than 300kb - system froze due to full RAM
-- add timeout when decompile each jar/class file after 3 minutes  - file too complex
+## Updates
+- Merged `main4big.py` functionality into `main.py` using `ThreadPoolExecutor` for safe and fast parallel decompilation.
+- Added multi-folder support to the `-f` flag (space-separated folders) to aggregate and parallelize files across all paths under a single run.
+- Automatically detects and prints the current Java/JDK version and its absolute executable path prior to running.
+- Fully compatible with Linux systems (case-insensitive extension scanning, OS-native path normalization, and bitwise OR file-permission modifications).
+- Added a visual progress bar (zero-dependency, terminal-safe) for decompiling JARs, class files, and XML formatting.
+- Integrated a Vineflower update feature (`-u` option) that auto-downloads the latest release from GitHub and automatically cleans up older `vineflower-*.jar` files.
+- Skips class files larger than 300KB to prevent high RAM utilization/freezes.
+- Added a 3-minute timeout for each decompilation to avoid hang-ups on highly complex files.
