@@ -1,4 +1,4 @@
-import glob, subprocess, os, stat, shutil, time
+import glob, subprocess, os, stat, shutil, time, threading
 import urllib.request, json
 import xml.dom.minidom
 import argparse
@@ -26,12 +26,36 @@ def checkJavaPath(java_path):
         print(f"ERROR: java not found, make sure is available on your PATH or specify it with '-jp' flag")
         exit()
 
-def show_progress(iteration, total, prefix='', suffix='', decimals=1, length=40, fill='#'):
-    """Print a simple console progress bar."""
+_progress_lock = threading.Lock()
+_progress_state = {
+    'active': False,
+    'iteration': 0,
+    'total': 0,
+    'prefix': '',
+    'suffix': '',
+    'start_time': None,
+    'decimals': 1,
+    'length': 40,
+    'fill': '#'
+}
+
+def _draw_progress(iteration, total, prefix='', suffix='', decimals=1, length=40, fill='#', start_time=None):
     percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total))) if total > 0 else "0.0"
     filledLength = int(length * iteration // total) if total > 0 else 0
     bar = fill * filledLength + '-' * (length - filledLength)
-    out = f'\r{prefix} |{bar}| {percent}% {suffix}'
+    
+    elapsed_str = ""
+    if start_time is not None:
+        elapsed = time.time() - start_time
+        hours = int(elapsed // 3600)
+        minutes = int((elapsed % 3600) // 60)
+        seconds = int(elapsed % 60)
+        if hours > 0:
+            elapsed_str = f" [{hours:02d}:{minutes:02d}:{seconds:02d}]"
+        else:
+            elapsed_str = f" [{minutes:02d}:{seconds:02d}]"
+            
+    out = f'\r{prefix} |{bar}| {percent}%{elapsed_str} {suffix}'
     
     # Pad with spaces to clear any previous longer line
     max_len = getattr(show_progress, 'max_len', 0)
@@ -44,6 +68,45 @@ def show_progress(iteration, total, prefix='', suffix='', decimals=1, length=40,
     if iteration == total:
         print()
         show_progress.max_len = 0
+
+def _progress_ticker():
+    while True:
+        time.sleep(1.0)
+        with _progress_lock:
+            if not _progress_state['active']:
+                continue
+            _draw_progress(
+                _progress_state['iteration'],
+                _progress_state['total'],
+                _progress_state['prefix'],
+                _progress_state['suffix'],
+                _progress_state['decimals'],
+                _progress_state['length'],
+                _progress_state['fill'],
+                _progress_state['start_time']
+            )
+
+# Start the background ticker thread
+_ticker_thread = threading.Thread(target=_progress_ticker, daemon=True)
+_ticker_thread.start()
+
+def show_progress(iteration, total, prefix='', suffix='', decimals=1, length=40, fill='#', start_time=None):
+    """Print a simple console progress bar and update the background ticker state."""
+    with _progress_lock:
+        if iteration == total:
+            _progress_state['active'] = False
+        else:
+            _progress_state['active'] = True
+            _progress_state['iteration'] = iteration
+            _progress_state['total'] = total
+            _progress_state['prefix'] = prefix
+            _progress_state['suffix'] = suffix
+            _progress_state['start_time'] = start_time
+            _progress_state['decimals'] = decimals
+            _progress_state['length'] = length
+            _progress_state['fill'] = fill
+            
+        _draw_progress(iteration, total, prefix, suffix, decimals, length, fill, start_time)
 
 def cleanup_old_vineflower_jars(keep_filename):
     """Delete any local vineflower-*.jar files in the current folder except the one we want to keep."""
@@ -143,11 +206,12 @@ def decompileJars(jar_files, JAVA_PATH, VINEFLOWER_PATH, timeout=180):
     if total == 0:
         return
     print(f'STATUS: found {total} jar files')
+    start_time = time.time()
     for i, jar_file in enumerate(jar_files):
         jar_file, out_jar_folder = getReady(jar_file)
-        show_progress(i, total, prefix='Decompiling JARs:', suffix=f'({i}/{total}) - {os.path.basename(jar_file)}')
+        show_progress(i, total, prefix='Decompiling JARs:', suffix=f'({i}/{total}) - {os.path.basename(jar_file)}', start_time=start_time)
         decompile(jar_file, out_jar_folder, JAVA_PATH, VINEFLOWER_PATH, timeout=timeout)
-    show_progress(total, total, prefix='Decompiling JARs:', suffix=f'({total}/{total})')
+    show_progress(total, total, prefix='Decompiling JARs:', suffix=f'({total}/{total})', start_time=start_time)
 
 def is_file_larger_than_300kb(filepath):
     return os.path.getsize(filepath) > 300_000
@@ -168,7 +232,8 @@ def decompileClasses(class_files, JAVA_PATH, VINEFLOWER_PATH, thread_num=4, time
         return
 
     print(f'STATUS: found {len(class_files)} class files ({total} to decompile)')
-    show_progress(0, total, prefix='Decompiling Classes:')
+    start_time = time.time()
+    show_progress(0, total, prefix='Decompiling Classes:', start_time=start_time)
     
     completed = 0
     with ThreadPoolExecutor(max_workers=thread_num) as executor:
@@ -178,7 +243,7 @@ def decompileClasses(class_files, JAVA_PATH, VINEFLOWER_PATH, thread_num=4, time
         }
         for future in as_completed(futures):
             completed += 1
-            show_progress(completed, total, prefix='Decompiling Classes:', suffix=f'({completed}/{total})')
+            show_progress(completed, total, prefix='Decompiling Classes:', suffix=f'({completed}/{total})', start_time=start_time)
 
 # beautify xml file, resource file in jar after decompile is minified
 def beautifyXML(xml_files):
@@ -186,9 +251,10 @@ def beautifyXML(xml_files):
     if total == 0:
         return
     print(f'STATUS: found {total} xml files')
+    start_time = time.time()
     for i, xml_file in enumerate(xml_files):
         xml_file, out_xml_folder = getReady(xml_file)
-        show_progress(i, total, prefix='Beautifying XMLs:', suffix=f'({i}/{total}) - {os.path.basename(xml_file)}')
+        show_progress(i, total, prefix='Beautifying XMLs:', suffix=f'({i}/{total}) - {os.path.basename(xml_file)}', start_time=start_time)
         try:
             with open(file=xml_file, mode='r', encoding='utf-8') as f:
                 text_lines = f.readlines()
@@ -203,7 +269,7 @@ def beautifyXML(xml_files):
         except Exception as e:
             print(f'\nERROR: Error beautifying: {xml_file}')
             print(e)
-    show_progress(total, total, prefix='Beautifying XMLs:', suffix=f'({total}/{total})')
+    show_progress(total, total, prefix='Beautifying XMLs:', suffix=f'({total}/{total})', start_time=start_time)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
