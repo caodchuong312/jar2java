@@ -1,4 +1,4 @@
-import glob, subprocess, os, stat, shutil
+import glob, subprocess, os, stat, shutil, time
 import urllib.request, json
 import xml.dom.minidom
 import argparse
@@ -251,6 +251,22 @@ if __name__ == '__main__':
         class_files.extend(find_files(folder, ['.class']))
         xml_files.extend(find_files(folder, ['.xml']))
 
+    start_time = time.time()
+
     decompileJars(jar_files, JAVA_PATH, VINEFLOWER_PATH, args.timeout)
     decompileClasses(class_files, JAVA_PATH, VINEFLOWER_PATH, args.thread, args.timeout)
     beautifyXML(xml_files)
+
+    elapsed = time.time() - start_time
+    hours = int(elapsed // 3600)
+    minutes = int((elapsed % 3600) // 60)
+    seconds = int(elapsed % 60)
+
+    time_str = ""
+    if hours > 0:
+        time_str += f"{hours}h "
+    if minutes > 0 or hours > 0:
+        time_str += f"{minutes}m "
+    time_str += f"{seconds}s"
+
+    print(f"INFO: Finished all tasks in {time_str}")
