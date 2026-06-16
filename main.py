@@ -176,8 +176,12 @@ def get_vineflower_path():
 
     raise FileNotFoundError('Vineflower jar not found and unable to download.')
 
-def decompile(jav_file, out_jav_folder, JAVA_PATH, VINEFLOWER_PATH, timeout=180, max_memory='4G'):
-    command = f"{JAVA_PATH} -Xmx{max_memory} -jar {VINEFLOWER_PATH} --silent {jav_file} {out_jav_folder}"
+def decompile(jav_file, out_jav_folder, JAVA_PATH, VINEFLOWER_PATH, timeout=180, max_memory='4G', debug=False):
+    silent_flag = "" if debug else " --silent"
+    command = f"{JAVA_PATH} -Xmx{max_memory} -jar {VINEFLOWER_PATH}{silent_flag} {jav_file} {out_jav_folder}"
+
+    if debug:
+        print(f"\n[DEBUG] Running: {command}")
 
     try:
         subprocess.run(command, check=True, shell=True, timeout=timeout)
@@ -186,6 +190,8 @@ def decompile(jav_file, out_jav_folder, JAVA_PATH, VINEFLOWER_PATH, timeout=180,
         return
     except Exception as e:
         print(f"\nERROR: Error decompile: {jav_file}")
+        if debug:
+            print(f"[DEBUG] Error details: {e}")
         return
 
     try:
@@ -201,7 +207,7 @@ def getReady(jar_file):
     jar_file = jar_file.replace('\\', '/')
     return jar_file, out_jar_folder
 
-def decompileJars(jar_files, JAVA_PATH, VINEFLOWER_PATH, timeout=180, max_memory='4G'):
+def decompileJars(jar_files, JAVA_PATH, VINEFLOWER_PATH, timeout=180, max_memory='4G', debug=False):
     total = len(jar_files)
     if total == 0:
         return
@@ -210,13 +216,13 @@ def decompileJars(jar_files, JAVA_PATH, VINEFLOWER_PATH, timeout=180, max_memory
     for i, jar_file in enumerate(jar_files):
         jar_file, out_jar_folder = getReady(jar_file)
         show_progress(i, total, prefix='Decompiling JARs:', suffix=f'({i}/{total}) - {os.path.basename(jar_file)}', start_time=start_time)
-        decompile(jar_file, out_jar_folder, JAVA_PATH, VINEFLOWER_PATH, timeout=timeout, max_memory=max_memory)
+        decompile(jar_file, out_jar_folder, JAVA_PATH, VINEFLOWER_PATH, timeout=timeout, max_memory=max_memory, debug=debug)
     show_progress(total, total, prefix='Decompiling JARs:', suffix=f'({total}/{total})', start_time=start_time)
 
 def is_file_larger_than_300kb(filepath):
     return os.path.getsize(filepath) > 300_000
 
-def decompileClasses(class_files, JAVA_PATH, VINEFLOWER_PATH, thread_num=4, timeout=180, max_memory='4G'):
+def decompileClasses(class_files, JAVA_PATH, VINEFLOWER_PATH, thread_num=4, timeout=180, max_memory='4G', debug=False):
     valid_classes = []
     for class_file in class_files:
         class_file, out_class_folder = getReady(class_file)
@@ -238,7 +244,7 @@ def decompileClasses(class_files, JAVA_PATH, VINEFLOWER_PATH, thread_num=4, time
     completed = 0
     with ThreadPoolExecutor(max_workers=thread_num) as executor:
         futures = {
-            executor.submit(decompile, cls_file, out_folder, JAVA_PATH, VINEFLOWER_PATH, timeout, max_memory): cls_file
+            executor.submit(decompile, cls_file, out_folder, JAVA_PATH, VINEFLOWER_PATH, timeout, max_memory, debug): cls_file
             for cls_file, out_folder in valid_classes
         }
         for future in as_completed(futures):
@@ -279,6 +285,7 @@ if __name__ == '__main__':
     parser.add_argument('-u', '--update-vineflower', action='store_true', help='download latest Vineflower jar from GitHub releases')
     parser.add_argument('-to', '--timeout', type=int, default=180, help='timeout in seconds for decompiling each file, default is 180')
     parser.add_argument('-mx', '--max-memory', default='4G', help='maximum memory allocation pool for JVM (e.g. 2G, 4G, 8G), default is 4G')
+    parser.add_argument('-d', '--debug', action='store_true', help='enable debug mode to show detailed decompilation output and command execution')
     args = parser.parse_args()
 
     # Handle Vineflower update option
@@ -320,8 +327,8 @@ if __name__ == '__main__':
 
     start_time = time.time()
 
-    decompileJars(jar_files, JAVA_PATH, VINEFLOWER_PATH, args.timeout, args.max_memory)
-    decompileClasses(class_files, JAVA_PATH, VINEFLOWER_PATH, args.thread, args.timeout, args.max_memory)
+    decompileJars(jar_files, JAVA_PATH, VINEFLOWER_PATH, args.timeout, args.max_memory, args.debug)
+    decompileClasses(class_files, JAVA_PATH, VINEFLOWER_PATH, args.thread, args.timeout, args.max_memory, args.debug)
     beautifyXML(xml_files)
 
     elapsed = time.time() - start_time
