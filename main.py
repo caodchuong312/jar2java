@@ -31,9 +31,19 @@ def show_progress(iteration, total, prefix='', suffix='', decimals=1, length=40,
     percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total))) if total > 0 else "0.0"
     filledLength = int(length * iteration // total) if total > 0 else 0
     bar = fill * filledLength + '-' * (length - filledLength)
-    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end='', flush=True)
+    out = f'\r{prefix} |{bar}| {percent}% {suffix}'
+    
+    # Pad with spaces to clear any previous longer line
+    max_len = getattr(show_progress, 'max_len', 0)
+    if len(out) < max_len:
+        out += ' ' * (max_len - len(out))
+    else:
+        show_progress.max_len = len(out)
+        
+    print(out, end='', flush=True)
     if iteration == total:
         print()
+        show_progress.max_len = 0
 
 def cleanup_old_vineflower_jars(keep_filename):
     """Delete any local vineflower-*.jar files in the current folder except the one we want to keep."""
@@ -135,11 +145,11 @@ def decompileJars(jar_files, JAVA_PATH, VINEFLOWER_PATH):
     if total == 0:
         return
     print(f'STATUS: found {total} jar files')
-    show_progress(0, total, prefix='Decompiling JARs:')
     for i, jar_file in enumerate(jar_files):
         jar_file, out_jar_folder = getReady(jar_file)
+        show_progress(i, total, prefix='Decompiling JARs:', suffix=f'({i}/{total}) - {os.path.basename(jar_file)}')
         decompile(jar_file, out_jar_folder, JAVA_PATH, VINEFLOWER_PATH)
-        show_progress(i + 1, total, prefix='Decompiling JARs:', suffix=f'({i+1}/{total})')
+    show_progress(total, total, prefix='Decompiling JARs:', suffix=f'({total}/{total})')
 
 def is_file_larger_than_300kb(filepath):
     return os.path.getsize(filepath) > 300_000
@@ -178,10 +188,9 @@ def beautifyXML(xml_files):
     if total == 0:
         return
     print(f'STATUS: found {total} xml files')
-    show_progress(0, total, prefix='Beautifying XMLs:')
     for i, xml_file in enumerate(xml_files):
         xml_file, out_xml_folder = getReady(xml_file)
-
+        show_progress(i, total, prefix='Beautifying XMLs:', suffix=f'({i}/{total}) - {os.path.basename(xml_file)}')
         try:
             with open(file=xml_file, mode='r', encoding='utf-8') as f:
                 text_lines = f.readlines()
@@ -196,7 +205,7 @@ def beautifyXML(xml_files):
         except Exception as e:
             print(f'\nERROR: Error beautifying: {xml_file}')
             print(e)
-        show_progress(i + 1, total, prefix='Beautifying XMLs:', suffix=f'({i+1}/{total})')
+    show_progress(total, total, prefix='Beautifying XMLs:', suffix=f'({total}/{total})')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
