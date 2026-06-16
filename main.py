@@ -113,13 +113,11 @@ def get_vineflower_path():
 
     raise FileNotFoundError('Vineflower jar not found and unable to download.')
 
-def decompile(jav_file, out_jav_folder, JAVA_PATH, VINEFLOWER_PATH):
+def decompile(jav_file, out_jav_folder, JAVA_PATH, VINEFLOWER_PATH, timeout=180):
     command = f"{JAVA_PATH} -Xmx16G -jar {VINEFLOWER_PATH} --silent {jav_file} {out_jav_folder}"
 
     try:
-        # For classes, we use a 120s timeout like in main4big.py.
-        # But if it's a jar, 180s might be better. Let's use 180s timeout.
-        subprocess.run(command, check=True, shell=True, timeout=180)
+        subprocess.run(command, check=True, shell=True, timeout=timeout)
     except subprocess.TimeoutExpired as e:
         print(f"\nTIMEOUT: ignore this jar/class file: {jav_file}")
         return
@@ -140,7 +138,7 @@ def getReady(jar_file):
     jar_file = jar_file.replace('\\', '/')
     return jar_file, out_jar_folder
 
-def decompileJars(jar_files, JAVA_PATH, VINEFLOWER_PATH):
+def decompileJars(jar_files, JAVA_PATH, VINEFLOWER_PATH, timeout=180):
     total = len(jar_files)
     if total == 0:
         return
@@ -148,13 +146,13 @@ def decompileJars(jar_files, JAVA_PATH, VINEFLOWER_PATH):
     for i, jar_file in enumerate(jar_files):
         jar_file, out_jar_folder = getReady(jar_file)
         show_progress(i, total, prefix='Decompiling JARs:', suffix=f'({i}/{total}) - {os.path.basename(jar_file)}')
-        decompile(jar_file, out_jar_folder, JAVA_PATH, VINEFLOWER_PATH)
+        decompile(jar_file, out_jar_folder, JAVA_PATH, VINEFLOWER_PATH, timeout=timeout)
     show_progress(total, total, prefix='Decompiling JARs:', suffix=f'({total}/{total})')
 
 def is_file_larger_than_300kb(filepath):
     return os.path.getsize(filepath) > 300_000
 
-def decompileClasses(class_files, JAVA_PATH, VINEFLOWER_PATH, thread_num=4):
+def decompileClasses(class_files, JAVA_PATH, VINEFLOWER_PATH, thread_num=4, timeout=180):
     valid_classes = []
     for class_file in class_files:
         class_file, out_class_folder = getReady(class_file)
@@ -175,7 +173,7 @@ def decompileClasses(class_files, JAVA_PATH, VINEFLOWER_PATH, thread_num=4):
     completed = 0
     with ThreadPoolExecutor(max_workers=thread_num) as executor:
         futures = {
-            executor.submit(decompile, cls_file, out_folder, JAVA_PATH, VINEFLOWER_PATH): cls_file
+            executor.submit(decompile, cls_file, out_folder, JAVA_PATH, VINEFLOWER_PATH, timeout): cls_file
             for cls_file, out_folder in valid_classes
         }
         for future in as_completed(futures):
@@ -213,6 +211,7 @@ if __name__ == '__main__':
     parser.add_argument('-jp', '--java-path', help='specify java binary path')
     parser.add_argument('-t', '--thread', type=int, default=4, help='how many threads to use for decompiling classes, default is 4')
     parser.add_argument('-u', '--update-vineflower', action='store_true', help='download latest Vineflower jar from GitHub releases')
+    parser.add_argument('-to', '--timeout', type=int, default=180, help='timeout in seconds for decompiling each file, default is 180')
     args = parser.parse_args()
 
     # Handle Vineflower update option
@@ -252,6 +251,6 @@ if __name__ == '__main__':
         class_files.extend(find_files(folder, ['.class']))
         xml_files.extend(find_files(folder, ['.xml']))
 
-    decompileJars(jar_files, JAVA_PATH, VINEFLOWER_PATH)
-    decompileClasses(class_files, JAVA_PATH, VINEFLOWER_PATH, args.thread)
+    decompileJars(jar_files, JAVA_PATH, VINEFLOWER_PATH, args.timeout)
+    decompileClasses(class_files, JAVA_PATH, VINEFLOWER_PATH, args.thread, args.timeout)
     beautifyXML(xml_files)
